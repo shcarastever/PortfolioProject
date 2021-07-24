@@ -1,0 +1,289 @@
+--Cleaning Data in SQL Queries
+select *
+from master.dbo.NashvilleHousing
+
+--Change sale date format (Standardize Date Format)
+
+Select Saledate
+From master.dbo.NashvilleHousing
+
+Select saleDate, Convert(date,saledate)
+From master.dbo.HashvilleHousing
+
+Alter Table Nashvillehousing
+add saledateconverted date;
+
+
+--80% it works but sometimes it doesn't
+(Update NashvilleHouseing
+Set saledate = convert(date,saledate))
+
+update nashvillehousing
+set saledateconverted = convert(date,saledate)
+
+--This checks it
+select saledateconverted, convert(date,saledate)
+from master.dbo.NashvilleHousing
+------------------------------------------------------------------------------------------------------------
+--Populate Property Address data
+
+Select *
+From master.dbo.NashvilleHousing
+where propertyaddress is null
+
+--Look at everything
+
+Select *
+From master.dbo.NashvilleHousing
+--where propertyaddress is null
+order by ParcelID
+
+--Join exact table to itself where the "ParcelID" is the same but it is not the same row "UnquineID" (a and b are short code for table, <> is =)
+
+Select a.ParcelID, a.propertyAddress, b.ParcelID, b.propertyAddress
+From master.dbo.NashvilleHousing a
+Join master.dbo.NashvilleHousing b
+	on a.ParcelID = b.ParcelID
+	and a.[UniqueID ] <> b.[UniqueID ]
+Where a.propertyaddress is null
+
+--Now Seeing the Null values we add the address in the Null row ((Adding conditioning))
+
+Select a.ParcelID, a.propertyAddress, b.ParcelID, b.propertyAddress, ISNULL(a.PropertyAddress, b.Propertyaddress)
+From master.dbo.NashvilleHousing a
+Join master.dbo.NashvilleHousing b
+	on a.ParcelID = b.ParcelID
+	and a.[UniqueID ] <> b.[UniqueID ]
+Where a.propertyaddress is null
+
+--Update
+
+Update a
+set Propertyaddress = ISNULL(a.PropertyAddress, b.Propertyaddress)
+from master.dbo.NashvilleHousing a
+Join master.dbo.NashvilleHousing b
+	on a.ParcelID = b.ParcelID
+	and a.[UniqueID ] <> b.[UniqueID ]
+
+
+--As you can see now There are NO NULLs
+
+Select a.ParcelID, a.propertyAddress, b.ParcelID, b.propertyAddress, ISNULL(a.PropertyAddress, b.Propertyaddress)
+From master.dbo.NashvilleHousing a
+Join master.dbo.NashvilleHousing b
+	on a.ParcelID = b.ParcelID
+	and a.[UniqueID ] <> b.[UniqueID ]
+Where a.propertyaddress is null
+
+-------------------------------------------------------------------------------------------------------------------------
+
+--Breaking out address into individual colums (address, city, state)
+
+Select propertyaddress
+From master.dbo.NashvilleHousing
+--where propertyaddress is null
+--order by ParcelID
+
+
+--You can use the 'charindex' to find things, looking it up by its self will show you the number of spaces that thing is, adding '-#' you can take it away. 
+
+Select
+substring(propertyaddress, 1, charindex(',', propertyaddress)) as address
+
+from master.dbo.nashvillehousing
+
+--took of the comma and added the state in a new column
+
+Select
+substring(propertyaddress, 1, charindex(',', propertyaddress) -1 ) as address
+, substring(propertyaddress, charindex(',', propertyaddress) +1 , len(propertyaddress)) as address
+from master.dbo.nashvillehousing
+
+--One at a time: make the new column THEN update the system
+
+Alter Table Nashvillehousing
+add propertysplitaddress nvarchar(255);
+
+Update Nashvillehousing
+Set Propertysplitaddress = substring(propertyaddress, 1, charindex(',', propertyaddress) -1 )
+
+
+Alter Table Nashvillehousing
+add propertysplitcity nvarchar(255);
+
+
+Update NashvilleHousing
+Set Propertysplitcity = substring(propertyaddress, charindex(',', propertyaddress) +1 , len(propertyaddress))
+
+--then double check
+select *
+
+from master.dbo.nashvillehousing
+
+
+
+
+
+select owneraddress
+from master.dbo.nashvillehousing
+
+--Parsename looks for periods and we are looking for commas
+select
+parsename(owneraddress,1)
+from master.dbo.nashvillehousing
+
+--change the commas into periods
+select
+parsename(Replace(owneraddress, ',', '.') ,1)
+from master.dbo.nashvillehousing
+
+--seperates where ever the commas are into columns
+select
+parsename(Replace(owneraddress, ',', '.') ,1)
+,parsename(Replace(owneraddress, ',', '.') ,2)
+,parsename(Replace(owneraddress, ',', '.') ,3)
+from master.dbo.nashvillehousing
+
+--Organizing it "address", "city", "state"
+select
+parsename(Replace(owneraddress, ',', '.') ,3)
+,parsename(Replace(owneraddress, ',', '.') ,2)
+,parsename(Replace(owneraddress, ',', '.') ,1)
+from master.dbo.nashvillehousing
+
+--Adding the updating them to table 
+Alter Table Nashvillehousing
+add ownersplitaddress nvarchar(255);
+
+Update Nashvillehousing
+Set ownersplitaddress = parsename(Replace(owneraddress, ',', '.') ,3)
+
+
+Alter Table Nashvillehousing
+add ownersplitcity nvarchar(255);
+
+
+Update NashvilleHousing
+Set ownersplitcity = parsename(Replace(owneraddress, ',', '.') ,2)
+
+Alter Table Nashvillehousing
+add ownersplitstate nvarchar(255);
+
+
+Update NashvilleHousing
+Set ownersplitstate = parsename(Replace(owneraddress, ',', '.') ,1)
+
+--double check
+select *
+
+from master.dbo.nashvillehousing
+
+------------------------------------------------------------------------------------------------------------------------------------------
+
+--Change Y and N to Yes and No in "Sold as Vacant" Field
+
+select distinct(SoldAsVacant)
+from master.dbo.NashvilleHousing
+
+--count how many we need to change
+select distinct(SoldAsVacant), count(SoldAsVacant)
+from master.dbo.NashvilleHousing
+Group by SoldAsVacant
+order by 2
+
+--Setting a command 
+select distinct(SoldAsVacant)
+, case when SoldAsVacant = 'Y' then 'Yes'
+	   When SoldAsVacant = 'N' then 'No'
+       Else SoldAsVacant 
+	   End
+from master.dbo.NashvilleHousing
+
+--Update
+Update Nashvillehousing
+set SoldAsVacant = case when SoldAsVacant = 'Y' then 'Yes'
+	   When SoldAsVacant = 'N' then 'No'
+       Else SoldAsVacant 
+	   End
+
+--Double check
+select distinct(SoldAsVacant), count(SoldAsVacant)
+from master.dbo.NashvilleHousing
+Group by SoldAsVacant
+order by 2
+--------------------------------------------------------------------------------------------------------
+
+--Remove Duplicates
+
+--making a seperate table to see all the duplicates
+with rownumCTE as(
+select *,
+row_number() over(
+partition by parcelID,
+			 propertyaddress,
+			 saleprice,
+			 saledate,
+			 legalReference
+			 order by
+			     uniqueID
+				 ) row_num
+from master.dbo.NashvilleHousing
+--order by ParcelID
+)
+select *
+from rownumCTE
+where row_num > 1
+order by propertyaddress
+
+--deleting the rows
+
+with rownumCTE as(
+select *,
+row_number() over(
+partition by parcelID,
+			 propertyaddress,
+			 saleprice,
+			 saledate,
+			 legalReference
+			 order by
+			     uniqueID
+				 ) row_num
+from master.dbo.NashvilleHousing
+--order by ParcelID
+)
+Delete
+from rownumCTE
+where row_num > 1
+--order by propertyaddress
+
+--Double check
+with rownumCTE as(
+select *,
+row_number() over(
+partition by parcelID,
+			 propertyaddress,
+			 saleprice,
+			 saledate,
+			 legalReference
+			 order by
+			     uniqueID
+				 ) row_num
+from master.dbo.NashvilleHousing
+--order by ParcelID
+)
+select *
+from rownumCTE
+where row_num > 1
+order by propertyaddress
+
+-------------------------------------------------------------------------------------------------------------------------
+--Delete Unused Columns
+
+select *
+from master.dbo.NashvilleHousing
+
+alter table master.dbo.NashvilleHousing
+drop column owneraddress, taxdistrict, propertyaddress
+
+alter table master.dbo.NashvilleHousing
+drop column saledate
